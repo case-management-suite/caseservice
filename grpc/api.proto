@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "pb/";
+
+service CaseServiceAPI {
+    rpc NewCase (NewCaseRequest) returns (UUIDResponse);
+    rpc FindCase (FindCaseRequest) returns (FindCaseResponse);
+    rpc FindCases (FindCasesRequest) returns (FindCasesResponse);
+    rpc FindCaseActions (FindCaseActionsRequest) returns (FindCaseActionsResponse);
+    rpc UpdateCase (UpdateCaseRequest) returns (UpdateCaseResponse);
+}
+
+message NewCaseRequest {}
+
+message FindCaseRequest {
+    string UUID = 1;
+    Spec spec = 2;
+}
+
+message FindCasesRequest {
+    Spec spec = 1;
+}
+
+message FindCaseActionsRequest {
+    string UUID = 1;
+    Spec spec = 2;
+}
+
+message FindCaseResponse {
+    CaseRecord case_record = 1;
+}
+
+message FindCaseActionsResponse {
+    repeated CaseAction case_actions = 1;
+}
+
+message FindCasesResponse {
+    repeated CaseRecord case_records = 1;
+}
+
+message UpdateCaseRequest{
+    CaseRecord case_record = 1;
+}
+
+message UpdateCaseResponse{}
+
+message CaseRecord {
+    string ID = 1;
+    google.protobuf.Timestamp CreatedAt = 2;
+    google.protobuf.Timestamp UpdatedAt = 3;
+    google.protobuf.Timestamp DeletedAt = 4;
+    string Status = 5;
+}
+
+message CaseAction {
+    string ID = 1;
+    google.protobuf.Timestamp CreatedAt = 2;
+    google.protobuf.Timestamp UpdatedAt = 3;
+    google.protobuf.Timestamp DeletedAt = 4;
+    string CaseRecordID = 5;
+    string Action = 6;
+}
+
+// The request message containing the user's name.
+message Spec {
+    map<string, bool> Fields = 1;
+}
+
+// The response message containing the greetings
+message UUIDResponse {
+    string UUID = 1;
+}
