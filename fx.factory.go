@@ -3,6 +3,7 @@ package caseservice
 import (
 	"github.com/case-management-suite/casedb"
 	"github.com/case-management-suite/common/config"
+	"github.com/case-management-suite/common/server"
 	"github.com/case-management-suite/queue"
 	"github.com/case-management-suite/scheduler"
 	"go.uber.org/fx"
@@ -25,7 +26,7 @@ func FxOpts(appConfig config.AppConfig) fx.Option {
 				scheduler.NewWorkScheduler,
 				NewAPIServerFX,
 			),
-			fx.Invoke(func(*CaseServiceGRPCServer) {}),
+			fx.Invoke(func(*server.Server[*CaseServiceGRPCServer]) {}),
 		),
 	)
 

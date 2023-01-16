@@ -9,6 +9,7 @@ import (
 	"github.com/case-management-suite/casedb"
 	"github.com/case-management-suite/caseservice"
 	"github.com/case-management-suite/common/config"
+	"github.com/case-management-suite/common/service"
 	"github.com/case-management-suite/models"
 	"github.com/case-management-suite/queue"
 	"github.com/case-management-suite/scheduler"
@@ -28,8 +29,8 @@ func TestListenForCaseUpdate(t *testing.T) {
 	caseService := caseservice.NewCaseService(storage)
 
 	newQueueService := queue.QueueServiceFactory(config.GoChannels)
-	qs := newQueueService(appConfig.RulesServiceConfig.QueueConfig, appConfig.LogConfig)
-	workservice := scheduler.NewWorkScheduler(qs, appConfig)
+	qs := newQueueService(appConfig.RulesServiceConfig.QueueConfig, service.NewTestServiceUtils())
+	workservice := scheduler.NewWorkScheduler(appConfig, qs, service.NewTestServiceUtils())
 	server := caseservice.NewCaseServiceAPIServer(appConfig, caseService, workservice)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
@@ -38,7 +39,7 @@ func TestListenForCaseUpdate(t *testing.T) {
 	defer workservice.Stop()
 	// server.Start(ctx)
 
-	err := server.CaseServer.ListenForCaseUpdates(ctx)
+	err := server.Server.CaseServer.ListenForCaseUpdates(ctx)
 	testutil.AssertNilError(err, t)
 
 	out, err := qs.Listen(appConfig.RulesServiceConfig.QueueConfig.CaseNotificationsChannel, ctx)
@@ -63,10 +64,10 @@ func TestListenForCaseUpdate(t *testing.T) {
 		}
 	}()
 
-	id, err := server.CaseService.NewCase()
+	id, err := server.Server.CaseService.NewCase()
 	testutil.AssertNilError(err, t)
 
-	record, err := server.CaseService.FindCase(id, models.NewCaseRecordSpec(true))
+	record, err := server.Server.CaseService.FindCase(id, models.NewCaseRecordSpec(true))
 	testutil.AssertNilError(err, t)
 	testutil.AssertEq(id, record.ID, t)
 
@@ -74,12 +75,12 @@ func TestListenForCaseUpdate(t *testing.T) {
 
 	new_record := models.CaseRecord{ID: record.ID, Status: "STARTED"}
 
-	err = server.Scheduler.NotifyCaseUpdate(new_record, ctx)
+	err = server.Server.Scheduler.NotifyCaseUpdate(new_record, ctx)
 	testutil.AssertNilError(err, t)
 
 	wg.Wait()
 
-	record, err = server.CaseService.FindCase(id, models.NewCaseRecordSpec(true))
+	record, err = server.Server.CaseService.FindCase(id, models.NewCaseRecordSpec(true))
 	testutil.AssertNilError(err, t)
 	testutil.AssertEq(id, record.ID, t)
 

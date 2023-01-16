@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/case-management-suite/common/config"
+	"github.com/case-management-suite/common/server"
 	"go.uber.org/fx"
 )
 
@@ -12,14 +13,14 @@ type CaseServiceClientParams struct {
 	AppConfig config.AppConfig
 }
 
-func newFXCaseServiceClient(lc fx.Lifecycle, params CaseServiceClientParams) CaseService {
+func newFXCaseServiceClient(lc fx.Lifecycle, params CaseServiceClientParams) server.Server[CaseServiceClient] {
 	client := NewCaseServiceClient(params.AppConfig)
 	lc.Append(fx.Hook{
-		OnStart: func(_ context.Context) error {
-			return client.Connect()
+		OnStart: func(ctx context.Context) error {
+			return client.Start(ctx)
 		},
 		OnStop: func(ctx context.Context) error {
-			return client.Close()
+			return client.Stop(ctx)
 		},
 	})
 	return client

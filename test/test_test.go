@@ -1,5 +1,5 @@
 package caseservice_test
 
-import "github.com/case-management-suite/common"
+import "github.com/case-management-suite/common/server"
 
-var TU = common.NewTestServerUtils()
+var TU = server.NewTestServerUtils()

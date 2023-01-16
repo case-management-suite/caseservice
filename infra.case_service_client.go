@@ -8,23 +8,19 @@ import (
 
 	"github.com/case-management-suite/api/caseservice/pb"
 	"github.com/case-management-suite/common/config"
+	"github.com/case-management-suite/common/server"
 	"github.com/case-management-suite/models"
-	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
-func newGRPCConnection(csConf config.CasesServiceConfig) (*grpc.ClientConn, error) {
-	opts := grpc.WithTransportCredentials(insecure.NewCredentials())
-	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", csConf.Host, csConf.Port), opts)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to connect to gRPC client")
-	} else {
-		log.Info().Str("host", csConf.Host).Int16("port", csConf.Port).Msg("Started gRPC client")
-	}
-	return conn, err
+func NewCaseServiceClient(appConfig config.AppConfig) server.Server[CaseServiceClient] {
+	cd := ClientData{}
+	return server.NewServer(func(su server.ServerUtils) CaseServiceClient {
+		return CaseServiceClient{Config: appConfig.CasesService, InstanceID: rand.Intn(100), clientData: &cd, ServerUtils: su}
+	}, appConfig)
 }
 
 // Implements cases.CaseService
@@ -32,6 +28,7 @@ type CaseServiceClient struct {
 	Config     config.CasesServiceConfig
 	InstanceID int
 	clientData *ClientData
+	server.ServerUtils
 }
 
 type ClientData struct {
@@ -40,15 +37,35 @@ type ClientData struct {
 	client      pb.CaseServiceAPIClient
 }
 
-func NewCaseServiceClient(appConfig config.AppConfig) CaseServiceClient {
-	cd := ClientData{}
-	return CaseServiceClient{Config: appConfig.CasesService, InstanceID: rand.Intn(100), clientData: &cd}
+func _() CaseServiceClientFactory {
+	return NewCaseServiceClient
+}
+
+func (CaseServiceClient) GetName() string {
+	return "case_service_client"
+}
+
+func (csc CaseServiceClient) Start(_ context.Context) error {
+	return csc.Connect()
+}
+
+func (csc CaseServiceClient) Stop(_ context.Context) error {
+	return csc.Close()
+}
+
+func (csc CaseServiceClient) GetServerConfig() *server.ServerConfig {
+	c := server.ServerConfig{
+		Type: server.GRPCServerType,
+		Host: csc.Config.Host,
+		Port: int(csc.Config.Port),
+	}
+	return &c
 }
 
 func (csc CaseServiceClient) Connect() error {
-	conn, err := newGRPCConnection(csc.Config)
+	conn, err := csc.newGRPCConnection()
 	if err != nil {
-		log.Error().Err(err).Msg("Client failed to connect to the CasesService")
+		csc.Logger.Error().Err(err).Msg("Client failed to connect to the CasesService")
 		return err
 	}
 
@@ -57,6 +74,18 @@ func (csc CaseServiceClient) Connect() error {
 	csc.clientData.IsConnected = true
 	csc.clientData.connection = conn
 	return nil
+}
+
+func (csc CaseServiceClient) newGRPCConnection() (*grpc.ClientConn, error) {
+	csConf := csc.Config
+	opts := grpc.WithTransportCredentials(insecure.NewCredentials())
+	conn, err := grpc.Dial(fmt.Sprintf("%s:%d", csConf.Host, csConf.Port), opts)
+	if err != nil {
+		csc.Logger.Error().Err(err).Msg("Failed to connect to gRPC client")
+	} else {
+		csc.Logger.Info().Str("host", csConf.Host).Int16("port", csConf.Port).Msg("Started gRPC client")
+	}
+	return conn, err
 }
 
 func (csc *CaseServiceClient) Close() error {
@@ -84,7 +113,7 @@ func (c CaseServiceClient) NewCase() (models.Identifier, error) {
 	if err != nil {
 		return "", err
 	}
-	log.Debug().Str("UUID", uuid.UUID).Msg("Client request for new case is succesful")
+	c.Logger.Debug().Str("UUID", uuid.UUID).Msg("Client request for new case is succesful")
 
 	return uuid.UUID, nil
 }
@@ -154,3 +183,6 @@ func (c CaseServiceClient) IsActionSupported(action string) bool {
 func (c CaseServiceClient) SaveCaseAction(action models.CaseAction) (models.Identifier, error) {
 	return "", nil
 }
+
+var _ CaseService = CaseServiceClient{}
+var _ server.Serveable = CaseServiceClient{}
